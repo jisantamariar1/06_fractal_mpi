@@ -72,7 +72,8 @@ void setup_ui(){
                         break;
                 }
 
-                std::memset(pixel_buffer, 0, WIDTH * HEIGHT * sizeof(uint32_t)); // Limpiar el buffer de píxeles para evitar residuos visuales al cambiar de modo.
+                //std::memset(pixel_buffer, 0, WIDTH * HEIGHT * sizeof(uint32_t)); // Limpiar el buffer de píxeles para evitar residuos visuales al cambiar de modo.
+                std::memset(texture_buffer, 0, WIDTH * HEIGHT * sizeof(uint32_t));
             }
         }
         //notificar a los otros ranks que la app se esta cerrando
@@ -85,7 +86,8 @@ void setup_ui(){
 
 
         //crear la textura
-        texture.update((const uint8_t *)pixel_buffer);
+        //texture.update((const uint8_t *)pixel_buffer);
+        texture.update((const uint8_t *)texture_buffer);
         frames++;
 
         // D. CÁLCULO DE FPS: Cada vez que pase 1 segundo, actualizamos el contador.
@@ -158,7 +160,7 @@ int main(int argc, char* argv[]) {
             julia_mpi(x_min, y_min, x_max, y_max, WIDTH, HEIGHT, row_start, row_end, pixel_buffer);
 
             if(rank == 1) {
-                fmt::println("RANK_{}: max_iteraciones{}", rank, max_iteraciones);
+                //fmt::println("RANK_{}: max_iteraciones{}", rank, max_iteraciones);
             }
 
              

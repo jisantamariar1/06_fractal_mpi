@@ -28,32 +28,7 @@ uint32_t acotado_1(std::complex<double> z0) {
     return 0xFF000000;          // Si nunca escapó, devolvemos NEGRO.
 }
 
-// Función principal para la versión 1.
-void julia_serial_1(double x_min, double y_min, double x_max, double y_max, uint32_t width, uint32_t height, uint32_t* pixel_buffer) {
 
-    // Calculamos el "paso" matemático que representa cada píxel.
-    double dx = (x_max - x_min) / width;   
-    double dy = (y_max - y_min) / height;  
-
-    // Doble bucle para recorrer la rejilla de píxeles (Imagen 2D).
-    for(int i = 0; i < width; i++) {       // i recorre columnas (eje X).
-        for(int j = 0; j < height; j++) {  // j recorre filas (eje Y).
-            
-            // MAPEO: Convertimos el índice del píxel (i, j) a coordenadas reales (x, y).
-            double x = x_min + i * dx;
-            double y = y_min + j * dy;
-
-            // Creamos el número complejo z0 a partir de las coordenadas mapeadas.
-            std::complex<double> z(x, y);
-
-            // Obtenemos el color llamando a la función de cálculo.
-            auto color = acotado_1(z);
-
-            // Guardamos el color en el buffer plano usando la fórmula de índice 1D: (Fila * Ancho + Columna).
-            pixel_buffer[j * width + i] = color;
-        }
-    }
-}
 
 // --- VERSIÓN 2: OPTIMIZACIÓN MANUAL SIN <complex> ---
 

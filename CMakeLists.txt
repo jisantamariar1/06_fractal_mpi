@@ -12,7 +12,7 @@ find_package(SFML COMPONENTS System Graphics Window CONFIG REQUIRED)
 include_directories(${MPI_INCLUDE})
 
 # 3. Definir los ejecutables
-add_executable(fractal_mpi main.cpp fractal_mpi.cpp)
+add_executable(fractal_mpi main.cpp fractal_mpi.cpp palette.cpp)
 
 
 
