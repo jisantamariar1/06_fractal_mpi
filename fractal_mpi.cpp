@@ -82,4 +82,7 @@ void julia_mpi(double x_min, double y_min, double x_max, double y_max,
             pixel_buffer[(j - row_start) * width + i] = color;
         }
     }
+    for(int i=0;i<width;i++){
+        pixel_buffer[i] = 0xFF000000;
+    }
 }

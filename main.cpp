@@ -6,10 +6,19 @@
 #include <cstring> // Para memset
 #include <SFML/Graphics.hpp>
 #include "fractal_mpi.h"
+//#include "arial_ttf.h"
+#include "draw_text.h"
 
 #ifdef _WIN32
     #include <windows.h>
 #endif
+
+namespace arial_ttf 
+{
+    extern size_t data_len;
+    extern unsigned char data[];
+}
+
 
 double x_min = -1.5;
 double x_max = 1.5;
@@ -26,6 +35,34 @@ uint32_t* pixel_buffer = nullptr;
 uint32_t* texture_buffer = nullptr;
 
 int running = 1;
+int row_start;
+int row_end;
+int padding;
+int delta;
+int nprocs;
+int rank;
+
+std::string machine_name(){
+    std::string mname = "";
+#ifndef _WIN32
+    char hostname[256];
+    DWORD size = sizeof(hostname);
+    GetComputerNameA(hostname, &size);
+    mname = hostname;
+#endif
+    return mname;
+}
+
+void dibujar_texto(int rank){
+    auto texto = fmt::format("RANK_{}", rank);
+
+    draw_text_to_texture(
+        (unsigned char*)pixel_buffer,
+        WIDTH,delta,
+        texto.c_str(),
+        10,25,20);
+}
+
 
 void setup_ui(){
     texture_buffer = new uint32_t[WIDTH * HEIGHT];
@@ -39,11 +76,25 @@ void setup_ui(){
     HWND hwnd = window.getNativeHandle(); 
     ShowWindow(hwnd, SW_MAXIMIZE);        
 #endif
-    sf::Texture texture({WIDTH, HEIGHT}); 
+    sf::Texture texture({WIDTH, HEIGHT});
+    texture.update((const uint8_t *)texture_buffer); 
     // El 'sprite' es el objeto que permite "dibujar" la textura en la ventana.
     sf::Sprite sprite(texture); 
 
     //textos
+    const sf::Font font(arial_ttf::data, arial_ttf::data_len);
+
+    sf::Text text(font, "Fractal", 24); 
+    text.setFillColor(sf::Color::White); 
+    text.setPosition({10, 10}); 
+    text.setStyle(sf::Text::Bold); 
+
+    std::string options = "Up/Down: Change iterations";
+    sf::Text textOptions(font, options, 18);
+    textOptions.setFillColor(sf::Color::White);
+    textOptions.setStyle(sf::Text::Bold);
+    textOptions.setPosition({10, window.getSize().y - 40}); // Posicionar en la parte inferior de la ventana.
+
 
     //fps
     int frames = 0;
@@ -72,7 +123,6 @@ void setup_ui(){
                         break;
                 }
 
-                //std::memset(pixel_buffer, 0, WIDTH * HEIGHT * sizeof(uint32_t)); // Limpiar el buffer de píxeles para evitar residuos visuales al cambiar de modo.
                 std::memset(texture_buffer, 0, WIDTH * HEIGHT * sizeof(uint32_t));
             }
         }
@@ -83,10 +133,32 @@ void setup_ui(){
         if(running == 0) {
             break;
         }
+        //dibujar la porcion del rank 0
+        julia_mpi(x_min, y_min, x_max, y_max, WIDTH, HEIGHT, row_start, row_end, pixel_buffer);
+        //de momento no funciona mañana
+        dibujar_texto(0);
+        //copiar el pixelbuffer a la textura
+        std::memcpy(texture_buffer, pixel_buffer,WIDTH * delta * sizeof(uint32_t));
+        
+        //recibir las imagenes pariales de los otros tanks
+        for(int i=1; i<nprocs; i++) {
+            int new_delta = delta;
+            if(i == nprocs-1) {
+                new_delta = delta - padding;
+            }
+            MPI_Recv(
+                pixel_buffer, 
+                WIDTH * new_delta, 
+                MPI_UNSIGNED, 
+                i, 
+                0, 
+                MPI_COMM_WORLD, 
+                MPI_STATUS_IGNORE
+            );
+            std::memcpy(texture_buffer + (i*new_delta*WIDTH), pixel_buffer, WIDTH * new_delta * sizeof(uint32_t));
+        }
 
-
-        //crear la textura
-        //texture.update((const uint8_t *)pixel_buffer);
+        //actualizar la textura
         texture.update((const uint8_t *)texture_buffer);
         frames++;
 
@@ -118,17 +190,19 @@ void setup_ui(){
 
 int main(int argc, char* argv[]) {
     MPI_Init(&argc, &argv);
-    int nprocs;
-    int rank;
+    //int nprocs;
+    //int rank;
 
     //ranks
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    
+    init_freetype();
 
-    int delta = std::ceil(HEIGHT*1.0 / nprocs); // 1600/4 = 400
-    int row_start = rank * delta; // 0, 400, 800, 1200
-    int row_end = row_start + delta; // 400, 800, 1200, 1600
-    int padding = delta*nprocs - HEIGHT; // 1600 - 1600 = 0
+    delta = std::ceil(HEIGHT*1.0 / nprocs); // 1600/4 = 400
+    row_start = rank * delta; // 0, 400, 800, 1200
+    row_end = row_start + delta; // 400, 800, 1200, 1600
+    padding = delta*nprocs - HEIGHT; // 1600 - 1600 = 0
 
     if(row_end > HEIGHT) {
         row_end = HEIGHT;
@@ -157,8 +231,16 @@ int main(int argc, char* argv[]) {
                 fmt::println("RANK_{}: received shutdown signal. Exiting.", rank);
                 break;
             }
+            
             julia_mpi(x_min, y_min, x_max, y_max, WIDTH, HEIGHT, row_start, row_end, pixel_buffer);
-
+            //enviar la porcion de la imagen
+            MPI_Send(
+                pixel_buffer, 
+                WIDTH * delta, 
+                MPI_UNSIGNED, 
+                0, 
+                0, 
+                MPI_COMM_WORLD);
             if(rank == 1) {
                 //fmt::println("RANK_{}: max_iteraciones{}", rank, max_iteraciones);
             }
