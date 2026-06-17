@@ -44,7 +44,7 @@ int rank;
 
 std::string machine_name(){
     std::string mname = "";
-#ifndef _WIN32
+#ifdef _WIN32
     char hostname[256];
     DWORD size = sizeof(hostname);
     GetComputerNameA(hostname, &size);
@@ -54,7 +54,8 @@ std::string machine_name(){
 }
 
 void dibujar_texto(int rank){
-    auto texto = fmt::format("RANK_{}", rank);
+    std::string pc = machine_name();
+    auto texto = fmt::format("RANK_{} - PC: {}", rank, pc);
 
     draw_text_to_texture(
         (unsigned char*)pixel_buffer,
@@ -136,7 +137,7 @@ void setup_ui(){
         //dibujar la porcion del rank 0
         julia_mpi(x_min, y_min, x_max, y_max, WIDTH, HEIGHT, row_start, row_end, pixel_buffer);
         //de momento no funciona mañana
-        dibujar_texto(0);
+        dibujar_texto(rank);
         //copiar el pixelbuffer a la textura
         std::memcpy(texture_buffer, pixel_buffer,WIDTH * delta * sizeof(uint32_t));
         
@@ -233,6 +234,7 @@ int main(int argc, char* argv[]) {
             }
             
             julia_mpi(x_min, y_min, x_max, y_max, WIDTH, HEIGHT, row_start, row_end, pixel_buffer);
+            dibujar_texto(rank);
             //enviar la porcion de la imagen
             MPI_Send(
                 pixel_buffer, 
